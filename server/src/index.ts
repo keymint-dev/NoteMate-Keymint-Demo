@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import axios from 'axios';
+import { createHash } from 'crypto';
 import { z } from 'zod';
 
 dotenv.config();
@@ -42,7 +43,9 @@ app.post('/api/enter-license', async (req: express.Request, res: express.Respons
   try {
     const schema = z.object({ licenseKey: z.string(), deviceTag: z.string().optional(), hostId: z.string().optional() });
     const { licenseKey, deviceTag, hostId } = schema.parse(req.body);
-    const activationHost = hostId || `host-${Math.random().toString(36).slice(2)}`;
+    // Stable fallback: a random hostId per call would burn one activation
+    // slot per launch. Derive it from the key so repeat launches reuse it.
+    const activationHost = hostId || `demo-${createHash('sha256').update(licenseKey).digest('hex').slice(0, 16)}`;
     const payload = { productId, licenseKey, hostId: activationHost, deviceTag };
     // Use new endpoint per docs
     const actResp = await api.post('/key/activate', payload);
